@@ -14,7 +14,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.Properties;
 
 /**
  * Created by evgeniyh on 24/04/17.
@@ -23,6 +22,7 @@ import java.util.Properties;
 @Path("/")
 public class Main extends Application {
     private final static Logger logger = Logger.getLogger(Main.class);
+    private static String URL_TEMPLATE = "jdbc:postgresql://$HOST:$PORT/$USER";
     private static String url;
     private static String user;
     private static String password;
@@ -31,8 +31,7 @@ public class Main extends Application {
         String vcapServices = System.getenv("VCAP_SERVICES");
         if (vcapServices == null) {
             logger.error("Vcap services is null - the app isn't running im bluemix");
-        }
-        if (vcapServices != null) {
+        } else {
             JsonObject jsonObject = (JsonObject) (new JsonParser().parse(vcapServices));
             JsonArray elephantBind = jsonObject.getAsJsonArray("elephantsql");
             if (elephantBind == null) {
@@ -42,30 +41,34 @@ public class Main extends Application {
                 logger.info("Initialising credentials");
                 System.out.println(credentials.toString());
                 String uri = credentials.get("uri").getAsString();
-                url = setCredentials(uri);
-                try {
-                    Class.forName("org.postgresql.Driver");
-                    logger.info("Postgres driver exists");
-                } catch (java.lang.ClassNotFoundException e) {
-                    System.out.println("Could not find the JDBC driver!");
-                    System.out.println(e.getMessage());
-                }
+                setCredentials(uri);
+                validatePostgresDriver();
             }
         }
     }
 
+    private static void validatePostgresDriver() {
+        try {
+            Class.forName("org.postgresql.Driver");
+            logger.info("Postgres driver exists");
+        } catch (ClassNotFoundException e) {
+            logger.error("Could not find the JDBC driver!", e);
+        }
+    }
+
     private static void setCredentials(String uri) {
-        URI uri = URI.create("postgres://bnxkduhy:SHIq7uaDh41r-TwVD9WBTrGC2vk-VqHw@qdjjtnkv.db.elephantsql.com:5432/bnxkduhy");
+        URI parsed = URI.create(uri);
+        String host = parsed.getHost();
+        int port = parsed.getPort();
 
-        System.out.println(uri.getHost());
-        System.out.println(uri.getUserInfo());
-        System.out.println(uri.getAuthority());
-        System.out.println(uri.getPort());
+        String[] credentials = parsed.getRawUserInfo().split(":");
+        user = credentials[0];
+        password = credentials[1];
 
-        String[] credentials = uri.getRawUserInfo().split(":");
-        System.out.println(credentials[0]);
-        System.out.println(credentials[1]);
-
+        url = URL_TEMPLATE
+                .replace("$HOST", host)
+                .replace("$USER", user)
+                .replace("$PORT", String.valueOf(port));
     }
 
     @GET
@@ -73,34 +76,21 @@ public class Main extends Application {
     public String printAllData() {
         try {
             Driver driver = new Driver();
-            if (driver.acceptsURL(url)) {
-                logger.info("SUCCESS " + url);
-            } else {
-                logger.error("Doesn't accept " + url);
+            if (!driver.acceptsURL(url)) {
+                logger.error("Driver doesn't accept the URL");
+                return "ERROR ";
             }
 
-            url = "postgres://qdjjtnkv.db.elephantsql.com:5432/";
-            if (driver.acceptsURL(url)) {
-                logger.info("SUCCESS" + url);
-            }
+            logger.debug("Connecting to the db");
+            Connection db = DriverManager.getConnection(url, user, password);
+            logger.debug("Connected");
 
-
-            url = "jdbc:postgresql://qdjjtnkv.db.elephantsql.com:5432/bnxkduhy";
-            Properties props = new Properties();
-            props.setProperty("user", "bnxkduhy");
-            props.setProperty("password", "SHIq7uaDh41r-TwVD9WBTrGC2vk-VqHw");
-            props.setProperty("ssl", "false");
-
-            if (driver.acceptsURL(url)) {
-                logger.info("SUCCESS" + url);
-            }
-
-            Connection db = DriverManager.getConnection(url, props);
-            System.out.println("Connected");
+            String query = "SELECT table_name FROM information_schema.tables WHERE table_schema='public'";
+            logger.debug("Executing query " + query);
             try (Statement st = db.createStatement();
-                 ResultSet rs = st.executeQuery("select * from information_schema.tables")) {
-                System.out.println("Executed query");
-                if (!rs.next()) {
+                 ResultSet rs = st.executeQuery(query)) {
+                
+                if (!rs.isBeforeFirst()) {
                     return "Query was empty";
                 }
 //            ResultSet rs = st.executeQuery("SELECT * FROM people");
@@ -111,6 +101,7 @@ public class Main extends Application {
                     System.out.println(rs.getString(3));
                 }
             }
+            logger.debug("Query executed successfully ");
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
