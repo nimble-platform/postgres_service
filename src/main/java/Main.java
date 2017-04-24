@@ -2,17 +2,19 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.log4j.Logger;
+import org.postgresql.Driver;
 
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Application;
-import java.io.File;
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.Properties;
 
 /**
  * Created by evgeniyh on 24/04/17.
@@ -22,6 +24,8 @@ import java.sql.Statement;
 public class Main extends Application {
     private final static Logger logger = Logger.getLogger(Main.class);
     private static String url;
+    private static String user;
+    private static String password;
 
     static {
         String vcapServices = System.getenv("VCAP_SERVICES");
@@ -37,7 +41,8 @@ public class Main extends Application {
                 JsonObject credentials = elephantBind.get(0).getAsJsonObject().get("credentials").getAsJsonObject();
                 logger.info("Initialising credentials");
                 System.out.println(credentials.toString());
-                url = "jdbc:" + credentials.get("uri").getAsString();
+                String uri = credentials.get("uri").getAsString();
+                url = setCredentials(uri);
                 try {
                     Class.forName("org.postgresql.Driver");
                     logger.info("Postgres driver exists");
@@ -49,24 +54,48 @@ public class Main extends Application {
         }
     }
 
+    private static void setCredentials(String uri) {
+        URI uri = URI.create("postgres://bnxkduhy:SHIq7uaDh41r-TwVD9WBTrGC2vk-VqHw@qdjjtnkv.db.elephantsql.com:5432/bnxkduhy");
+
+        System.out.println(uri.getHost());
+        System.out.println(uri.getUserInfo());
+        System.out.println(uri.getAuthority());
+        System.out.println(uri.getPort());
+
+        String[] credentials = uri.getRawUserInfo().split(":");
+        System.out.println(credentials[0]);
+        System.out.println(credentials[1]);
+
+    }
+
     @GET
     @Path("/data")
     public String printAllData() {
-        System.out.println(System.getProperty("java.class.path"));
-        System.out.println(new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath()));
-        if (url == null) {
-            logger.error("URI is null");
-            return "ERROR !!! postgres uri is null";
-        }
-
         try {
-            Class a = Class.forName("org.postgresql.Driver");
-            System.out.println((a == null) ? "NULL !!!" : a.toString());
-            logger.info("Postgres driver exists");
+            Driver driver = new Driver();
+            if (driver.acceptsURL(url)) {
+                logger.info("SUCCESS " + url);
+            } else {
+                logger.error("Doesn't accept " + url);
+            }
 
-            System.out.println("URL is : " + url);
-            Connection db = DriverManager.getConnection(url);
+            url = "postgres://qdjjtnkv.db.elephantsql.com:5432/";
+            if (driver.acceptsURL(url)) {
+                logger.info("SUCCESS" + url);
+            }
 
+
+            url = "jdbc:postgresql://qdjjtnkv.db.elephantsql.com:5432/bnxkduhy";
+            Properties props = new Properties();
+            props.setProperty("user", "bnxkduhy");
+            props.setProperty("password", "SHIq7uaDh41r-TwVD9WBTrGC2vk-VqHw");
+            props.setProperty("ssl", "false");
+
+            if (driver.acceptsURL(url)) {
+                logger.info("SUCCESS" + url);
+            }
+
+            Connection db = DriverManager.getConnection(url, props);
             System.out.println("Connected");
             try (Statement st = db.createStatement();
                  ResultSet rs = st.executeQuery("select * from information_schema.tables")) {
