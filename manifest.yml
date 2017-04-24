@@ -1,0 +1,7 @@
+---
+applications:
+ - name: postgress_service
+   random-route: true
+   path: target/postgress_service.war
+   memory: 512M
+   instances: 1
