@@ -8,6 +8,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Application;
+import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -36,11 +37,12 @@ public class Main extends Application {
                 JsonObject credentials = elephantBind.get(0).getAsJsonObject().get("credentials").getAsJsonObject();
                 logger.info("Initialising credentials");
                 System.out.println(credentials.toString());
-                url = credentials.get("uri").getAsString();
+                url = "jdbc:" + credentials.get("uri").getAsString();
                 try {
                     Class.forName("org.postgresql.Driver");
                     logger.info("Postgres driver exists");
                 } catch (java.lang.ClassNotFoundException e) {
+                    System.out.println("Could not find the JDBC driver!");
                     System.out.println(e.getMessage());
                 }
             }
@@ -50,13 +52,21 @@ public class Main extends Application {
     @GET
     @Path("/data")
     public String printAllData() {
+        System.out.println(System.getProperty("java.class.path"));
+        System.out.println(new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath()));
         if (url == null) {
             logger.error("URI is null");
             return "ERROR !!! postgres uri is null";
         }
 
         try {
+            Class a = Class.forName("org.postgresql.Driver");
+            System.out.println((a == null) ? "NULL !!!" : a.toString());
+            logger.info("Postgres driver exists");
+
+            System.out.println("URL is : " + url);
             Connection db = DriverManager.getConnection(url);
+
             System.out.println("Connected");
             try (Statement st = db.createStatement();
                  ResultSet rs = st.executeQuery("select * from information_schema.tables")) {
@@ -72,7 +82,7 @@ public class Main extends Application {
                     System.out.println(rs.getString(3));
                 }
             }
-        } catch (java.sql.SQLException e) {
+        } catch (Exception e) {
             System.out.println(e.getMessage());
         }
         return "SUCCESS";
