@@ -115,14 +115,21 @@ public class Main extends Application {
             p.setInt(1, id);
             p.setString(2, message);
             int insertRows = p.executeUpdate();
-            if (insertRows == 1) {
-                logger.debug("The row inserted successfully");
-            }
+            return getInsertResult(insertRows);
         } catch (Exception e) {
             logger.error("Error on post a record command", e);
             return "ERROR" + e.getMessage();
         }
-        return "data has been sent";
+    }
+
+    private String getInsertResult(int insertRows) {
+        if (insertRows != 1) {
+            logger.error("Error on inserting the row");
+            return "ERROR";
+        } else {
+            logger.debug("The row has been inserted successfully");
+            return "Data has been sent";
+        }
     }
 
     private Connection getConnection() throws SQLException {
