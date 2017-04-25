@@ -15,4 +15,4 @@ Use REST POST call with query parameters:
 * id - Integer - The primary key of the table
 * message - Text - The data to be store for that record  
 
-e.g: `http://postgres-service-antipestilential-apochromatism.eu-gb.mybluemix.net/insert/test_table?id=9&message=my_text`  
+`http://postgres-service-antipestilential-apochromatism.eu-gb.mybluemix.net/insert/test_table?id=9&message=my_text`  
